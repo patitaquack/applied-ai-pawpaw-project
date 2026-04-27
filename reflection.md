@@ -7,14 +7,14 @@
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
 
-I included a Task Class , it included the name, time it would take for an activity, priority. I included a category object  with different activity options, time of day
+I included a Task Class , it included the namem time it would take for an activity, and priority. I included a category object  with different activity options, time of day
 An Owner preference for choices and instructions, and a planner class for scheduling
 **b. Design changes**
 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
 
-Yes, I it changed a lot. My initial design lacked organization in some ways. I added things like frequency. And moved certain logic to a different clasds that made more sense.
+Yes, I it changed a lot. My initial design felt a little messy in some ways. I added things like frequency, and moved certain logic to a different class that made more sense. I wanted to implement a lot more changes, but I was afraid that I would over complicate things and mess it up.
 
 ---
 
@@ -26,12 +26,12 @@ Yes, I it changed a lot. My initial design lacked organization in some ways. I a
 - How did you decide which constraints mattered most?
 it considers avaialbility, priority, and personal owner preferences.
 
-I decided based on practicality. Tasked need to be organized in a way that works better for the pets safety and health. Also considering that most people have many daily tasks.
+I decided based on practicality. Tasks need to be organized in a way that works better for the pets needs and health. Also considering that most people have many daily tasks, and limited time.
 **b. Tradeoffs**
 
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
-The scheduler leaves out low- priority tasks when the user/owner has very little free time. The reason that is reasonable, is because feeding and walking for example can not be neglected. As it is a major need for a pet.
+The scheduler leaves out low- priority tasks when the user/owner has very little free time. The reason that is reasonable, is because feeding and walking for example can not be neglected, specially with bigger dogs.
 ---
 
 ## 3. AI Collaboration
@@ -72,16 +72,16 @@ I am confident that works, as I tested it a few times myself
 
 - What part of this project are you most satisfied with?
 
-I am satisfied with the final product. I think that this scheduler is actually a brilliant idea.
+I am satisfied with the final product. One of the things that I had trouble with but made sense for me was to add a " start over" button. I am very satisfied that I got it working. 
 
 **b. What you would improve**
 
 - If you had another iteration, what would you improve or redesign?
 
-I think adding multiple pets, and a section to include special accomadations for pets
+I still believe that this scheduler can be made simpler with less steps, and a more user friendly view. I find the final product to be better but could still improve. The goal is to make it as simple, and less time consuming.
 
 **c. Key takeaway**
 
 - What is one important thing you learned about designing systems or working with AI on this project?
 
-I learned that sometimes we have to make a good amount of changes in our designs to better help the user. I learned that AI helps organize classes in a more logical way, really enjoyed seeing that
+I learned that AI is really great at organizing and great with data structure. I was having a hard time with organizing the classes, and thinking of ways to make it easier on the user. I think that less is more when it comes to applications such as this one.

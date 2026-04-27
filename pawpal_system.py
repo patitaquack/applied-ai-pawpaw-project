@@ -1,5 +1,4 @@
-import copy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 from typing import List, Optional
 
@@ -58,7 +57,7 @@ class Task:
         next_due = self.due_date + timedelta(days=days_ahead)
 
         # copy.replace() creates a new Task with only the specified fields changed
-        return copy.replace(self, status="pending", due_date=next_due)
+        return replace(self, status="pending", due_date=next_due)
 
 
 @dataclass
@@ -295,7 +294,7 @@ def expand_recurring(tasks: List[Task], day_start_minute: int = 480) -> List[Tas
     for task in tasks:
         expanded.append(task)
         if task.recurrence == "twice_daily":
-            second = copy.replace(
+            second = replace(
                 task,
                 title=f"{task.title} (2nd)",
                 preferred_start_minute=(
@@ -390,37 +389,61 @@ def generate_schedule(
     # Step 2 — expand recurring tasks (e.g. twice_daily → two entries)
     expanded = expand_recurring(filtered, day_start_minute)
 
-    # Step 3 — sort by preferred start time first (via sort_by_time()),
-    # then break ties by priority and duration using a multi-key lambda
-    time_sorted = sort_by_time(expanded)
-    sorted_tasks = sorted(
-        time_sorted,
-        key=lambda t: (
-            t.preferred_start_minute if t.preferred_start_minute is not None else 9999,
-            PRIORITY_ORDER[t.priority],  # high=0, medium=1, low=2
-            t.duration_minutes,          # shorter tasks scheduled first on ties
-        ),
+    day_end_minute = day_start_minute + owner.available_minutes
+
+    # Step 3 — split into anchored (has preferred time) and floating (no preferred time)
+    anchored = sorted(
+        [t for t in expanded if t.preferred_start_minute is not None],
+        key=lambda t: t.preferred_start_minute,
+    )
+    floating = sorted(
+        [t for t in expanded if t.preferred_start_minute is None],
+        key=lambda t: (PRIORITY_ORDER[t.priority], t.duration_minutes),
     )
 
-    # Step 4 — greedily assign tasks to time slots
     schedule = Schedule(owner=owner)
-    current_minute = day_start_minute
-    remaining = owner.available_minutes
 
-    slot = 1
-    for task in sorted_tasks:
-        if task.duration_minutes <= remaining:
-            reason = _build_reason(task, remaining, current_minute, slot)
+    # Step 4 — place anchored tasks at their exact preferred start times
+    for task in anchored:
+        start = task.preferred_start_minute
+        if start >= day_start_minute and start + task.duration_minutes <= day_end_minute:
             schedule.scheduled_tasks.append(
-                ScheduledTask(task=task, start_minute=current_minute, reason=reason)
+                ScheduledTask(task=task, start_minute=start, reason="")
             )
-            slot += 1
-            current_minute += task.duration_minutes
-            remaining -= task.duration_minutes
         else:
             schedule.skipped_tasks.append(task)
 
-    # Step 5 — detect conflicts in the final schedule
+    # Step 5 — fill gaps between anchored tasks with floating tasks
+    occupied = sorted((st.start_minute, st.end_minute) for st in schedule.scheduled_tasks)
+
+    for task in floating:
+        gap_start = day_start_minute
+        placed = False
+        for occ_start, occ_end in occupied:
+            if occ_start - gap_start >= task.duration_minutes:
+                schedule.scheduled_tasks.append(
+                    ScheduledTask(task=task, start_minute=gap_start, reason="")
+                )
+                occupied = sorted(occupied + [(gap_start, gap_start + task.duration_minutes)])
+                placed = True
+                break
+            gap_start = max(gap_start, occ_end)
+        if not placed:
+            if day_end_minute - gap_start >= task.duration_minutes:
+                schedule.scheduled_tasks.append(
+                    ScheduledTask(task=task, start_minute=gap_start, reason="")
+                )
+                occupied = sorted(occupied + [(gap_start, gap_start + task.duration_minutes)])
+            else:
+                schedule.skipped_tasks.append(task)
+
+    # Step 6 — sort by start time and assign human-readable reasons
+    schedule.scheduled_tasks.sort(key=lambda st: st.start_minute)
+    for idx, st in enumerate(schedule.scheduled_tasks):
+        minutes_used_before = sum(s.task.duration_minutes for s in schedule.scheduled_tasks[:idx])
+        st.reason = _build_reason(st.task, owner.available_minutes - minutes_used_before, st.start_minute, idx + 1)
+
+    # Step 7 — detect conflicts in the final schedule
     schedule.conflicts = detect_conflicts(schedule.scheduled_tasks)
 
     return schedule
@@ -449,11 +472,16 @@ def _build_reason(task: Task, remaining_before: int, start_minute: int, slot: in
     }
     slot_label = {1: "1st", 2: "2nd", 3: "3rd"}.get(slot, f"{slot}th")
     time_str = _minutes_to_time(start_minute)
-    time_note = (
-        f"preferred start was {_minutes_to_time(task.preferred_start_minute)}; "
-        if task.preferred_start_minute is not None
-        else ""
-    )
+
+    if task.preferred_start_minute is not None:
+        pref_str = _minutes_to_time(task.preferred_start_minute)
+        if start_minute == task.preferred_start_minute:
+            time_note = f"placed at preferred time {pref_str}; "
+        else:
+            time_note = f"preferred {pref_str}, placed at {time_str}; "
+    else:
+        time_note = f"no preferred time, placed in earliest gap at {time_str}; "
+
     return (
         f"Placed {slot_label} at {time_str} — {time_note}"
         f"{priority_phrases[task.priority]}. "

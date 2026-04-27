@@ -1,0 +1,13 @@
+# Secrets — never commit
+.streamlit/secrets.toml
+
+# Database
+pawpal.db
+
+# Logs
+pawpal.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
